@@ -155,8 +155,8 @@ def _prepare_options(x: sparse.csr_matrix, options: str) -> tuple[sparse.csr_mat
         )
     if not "-q" in options_split:
         options_split.append("-q")
-    if not "-m" in options:
-        options_split.append(f"-m {int(os.cpu_count() / 2)}")
+    # if not "-m" in options:
+    #     options_split.append(f"-m {int(os.cpu_count() / 2)}")
 
     options = " ".join(options_split)
     return x, options, bias
