@@ -5,7 +5,7 @@ import numpy as np
 from tqdm import tqdm
 
 import libmultilabel.linear as linear
-from libmultilabel.common_utils import dump_log, is_multiclass_dataset
+from libmultilabel.common_utils import dump_log, is_multiclass_dataset, timer
 from libmultilabel.linear.utils import LINEAR_TECHNIQUES
 
 
@@ -38,11 +38,11 @@ def linear_test(config, model, datasets, label_mapping):
     metric_dict = metrics.compute()
     return metric_dict, labels, scores
 
-
+@timer
 def linear_train(datasets, config):
     # detect task type
     multiclass = is_multiclass_dataset(datasets["train"], "y")
-
+    print(f'y: {datasets["train"]["y"].shape}, x: {datasets["train"]["x"].shape}')
     # train
     if config.linear_technique == "tree":
         if multiclass:
@@ -74,14 +74,19 @@ def linear_run(config):
         datasets = linear.load_dataset(config.data_format, config.training_file, config.test_file)
         datasets = preprocessor.transform(datasets)
     else:
-        preprocessor = linear.Preprocessor(config.include_test_labels, config.remove_no_label_data)
-        datasets = linear.load_dataset(
-            config.data_format,
-            config.training_file,
-            config.test_file,
-            config.label_file,
-        )
-        datasets = preprocessor.fit_transform(datasets)
+        # preprocessor = linear.Preprocessor(config.include_test_labels, config.remove_no_label_data)
+        # datasets = linear.load_dataset(
+        #     config.data_format,
+        #     config.training_file,
+        #     config.test_file,
+        #     config.label_file,
+        # )
+        # datasets = preprocessor.fit_transform(datasets)
+        import pickle
+        with open(f"{config.training_file}.pickle", 'rb') as fp:
+                datasets = pickle.load(fp)
+        with open(f"{config.training_file}.preprocessor.pickle", 'rb') as fp:
+            preprocessor = pickle.load(fp)
         model = linear_train(datasets, config)
         linear.save_pipeline(config.checkpoint_dir, preprocessor, model)
 
