@@ -14,7 +14,7 @@ class ParallelTrainer(threading.Thread):
     param: parameter
     weights: np.ndarray
     pbar: tqdm
-    queue: Queue[int]
+    queue: Queue
     lock: threading.Lock
 
     def __init__(self):
