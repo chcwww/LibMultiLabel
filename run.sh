@@ -1,8 +1,19 @@
+if [ $# -eq 0 ]; then
+    echo "Need an argument for log directory name."
+    exit
+fi
+
 datasets=(rcv1 EUR-Lex Wiki10-31K AmazonCat-13K)
 linear_techs=(tree 1vsrest)
-branches=(master no_parallel ovr_thread sep_ovr_thread)
+branches=(master)
 
-LOG=$1
+test_data=""
+if [ $# -eq 3 ]; then
+    # bash run.sh log_dir linear_technique dataset_name
+    linear_techs=($2)
+    datasets=($3)
+    # test_data="--test_file data/${data}/test.txt"
+fi
 
 for linear_tech in "${linear_techs[@]}"; do 
     mkdir -p para_log/${linear_tech}  memory_profile/${linear_tech}
@@ -16,8 +27,8 @@ for linear_tech in "${linear_techs[@]}"; do
 
             mprof run -M -C python -X faulthandler main.py \
             --linear --liblinear_options "-s 1 -B 1 -e 0.0001 -q" \
-            --data_format txt --training_file data/${data}/train.txt \
-            --linear_technique ${linear_tech} --seed 1337\
+            --data_format txt --training_file data/${data}/train.txt $test_data\
+            --linear_technique ${linear_tech} --seed 1337 \
             --result_dir runs/${exp_id} \
             > para_log/${exp_id}.log 2>&1
 
@@ -27,5 +38,9 @@ for linear_tech in "${linear_techs[@]}"; do
     done
 done
 
-bash move_log.sh ${LOG}
+bash move_log.sh $1
 git checkout master
+
+# python -X faulthandler main.py --linear --liblinear_options "-s 1 -B 1 -e 0.0001 -q" --data_format txt --training_file data/rcv1/train.txt --linear_technique 1vsrest --seed 1337 --result_dir runs/1vsrest
+# | tee -a para_log/${exp_id}.log
+            
