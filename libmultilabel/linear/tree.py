@@ -132,6 +132,8 @@ def train_tree(
     Returns:
         A model which can be used in predict_values.
     """
+    import time
+    s1 = time.time()
     label_representation = (y.T * x).tocsr()
     label_representation = sklearn.preprocessing.normalize(label_representation, norm="l2", axis=1)
     root = _build_tree(label_representation, np.arange(y.shape[1]), 0, K, dmax)
@@ -159,7 +161,7 @@ def train_tree(
 
     if total_memory <= model_size:
         raise MemoryError(f"Not enough memory to train the model.")
-
+    s2 = time.time()
     pbar = tqdm(total=num_nodes, disable=not verbose)
 
     def visit(node):
@@ -172,7 +174,8 @@ def train_tree(
 
     root.dfs(visit)
     pbar.close()
-
+    s3 = time.time()
+    print(f"kmeans: {s2-s1:.4f}, trianing: {s3-s2:.4f}, total: {s3-s1:.4f}")
     flat_model, weight_map = _flatten_model(root)
     return TreeModel(root, flat_model, weight_map)
 

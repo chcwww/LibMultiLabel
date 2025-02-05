@@ -8,7 +8,7 @@ import libmultilabel.linear as linear
 from libmultilabel.common_utils import dump_log, is_multiclass_dataset, timer
 from libmultilabel.linear.utils import LINEAR_TECHNIQUES
 
-
+@timer
 def linear_test(config, model, datasets, label_mapping):
     metrics = linear.get_metrics(config.monitor_metrics, datasets["test"]["y"].shape[1], multiclass=model.multiclass)
     num_instance = datasets["test"]["x"].shape[0]
@@ -64,7 +64,7 @@ def linear_train(datasets, config):
         )
     return model
 
-
+@timer
 def linear_run(config):
     if config.seed is not None:
         np.random.seed(config.seed)
@@ -74,21 +74,30 @@ def linear_run(config):
         datasets = linear.load_dataset(config.data_format, config.training_file, config.test_file)
         datasets = preprocessor.transform(datasets)
     else:
-        # preprocessor = linear.Preprocessor(config.include_test_labels, config.remove_no_label_data)
-        # datasets = linear.load_dataset(
-        #     config.data_format,
-        #     config.training_file,
-        #     config.test_file,
-        #     config.label_file,
-        # )
-        # datasets = preprocessor.fit_transform(datasets)
-        import pickle
-        with open(f"{config.training_file}.pickle", 'rb') as fp:
-                datasets = pickle.load(fp)
-        with open(f"{config.training_file}.preprocessor.pickle", 'rb') as fp:
-            preprocessor = pickle.load(fp)
+        import time
+        s = time.time()
+        preprocessor = linear.Preprocessor(config.include_test_labels, config.remove_no_label_data)
+        datasets = linear.load_dataset(
+            config.data_format,
+            config.training_file,
+            config.test_file,
+            config.label_file,
+        )
+        datasets = preprocessor.fit_transform(datasets)
+        print(f"Dataset overhead: {time.time() - s:.4f}")
+        # import pickle
+        # with open(f"{config.training_file}.pickle", 'rb') as fp:
+        #         datasets = pickle.load(fp)
+        # with open(f"{config.training_file}.preprocessor.pickle", 'rb') as fp:
+        #     preprocessor = pickle.load(fp)
+        s = time.time()
         model = linear_train(datasets, config)
-        linear.save_pipeline(config.checkpoint_dir, preprocessor, model)
+        print(f"Training time: {time.time() - s:.4f}")
+        try:
+            linear.save_pipeline(config.checkpoint_dir, preprocessor, model)
+        except Exception as e:
+            print(e)
+            print("Error when saving pipeline...")
 
     if config.test_file is not None:
         assert not (
@@ -96,6 +105,7 @@ def linear_run(config):
         ), """
             If save_k_predictions is larger than 0, only top k labels are saved.
             Save all labels with decision value larger than 0 by using save_positive_predictions and save_k_predictions=0."""
+        s = time.time()
         metric_dict, labels, scores = linear_test(config, model, datasets, preprocessor.label_mapping)
         dump_log(config=config, metrics=metric_dict, split="test", log_path=config.log_path)
         print(linear.tabulate_metrics(metric_dict, "test"))
@@ -112,3 +122,4 @@ def linear_run(config):
                         out_str = " ".join([f"{i}:{s:.4}" for i, s in zip(label, score)])
                         fp.write(out_str + "\n")
             logging.info(f"Saved predictions to: {config.predict_out_path}")
+        print(f"Test time: {time.time() - s:.4f}")
