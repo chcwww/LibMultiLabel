@@ -4,7 +4,6 @@ if [ $# -eq 0 ]; then
 fi
 
 datasets=(rcv1 EUR-Lex Wiki10-31K AmazonCat-13K)
-datasets=(AmazonCat-13K)
 
 for data in "${datasets[@]}"; do
     python main_inference.py --data_format svm \
