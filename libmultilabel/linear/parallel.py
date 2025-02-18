@@ -30,8 +30,8 @@ class ParallelTrainer(threading.Thread):
         weights: np.ndarray,
         verbose: bool,
     ):
-        """Initialize the parallel trainer, setting y, x, parameter and threading related
-        variables as static variable of ParallelTrainer.
+        """Initialize the parallel trainer by setting y, x, parameter and threading related
+        variables as class variable of ParallelTrainer.
 
         Args:
             y (sparse.csr_matrix): A 0/1 matrix with dimensions number of instances * number of classes.
@@ -56,11 +56,10 @@ class ParallelTrainer(threading.Thread):
     @staticmethod
     def _do_parallel_train(prob: problem, param: parameter) -> np.matrix:
         """Wrapper around liblinear.liblinearutil.train.
-        Forcibly suppresses all IO regardless of options.
 
         Args:
-            prob (problem): A liblinear.problem ready to train.
-            param (parameter): The liblinear.parameter passed to liblinear.
+            prob (problem): A preprocessed liblinear.problem instance.
+            param (parameter): A preprocessed liblinear.parameter instance.
 
         Returns:
             np.matrix: the weights.
@@ -103,7 +102,7 @@ def train_parallel_1vsrest(
         verbose: bool,
     ):
     """Parallel training on labels when using one-vs-rest strategy,
-    and save trained weights by reference.
+    and saving trained weights by reference.
 
     Args:
         y (sparse.csr_matrix): A 0/1 matrix with dimensions number of instances * number of classes.
