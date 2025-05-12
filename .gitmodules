@@ -1,3 +1,7 @@
 [submodule "docs/sdp"]
 	path = docs/sdp
 	url = https://github.com/ntumlgroup/sdp.git
+[submodule "liblr"]
+	path = liblr
+	url = git@github.com:ntumlgroup/liblr
+	branch = multicore

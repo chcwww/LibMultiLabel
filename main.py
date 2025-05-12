@@ -6,7 +6,7 @@ from pathlib import Path
 
 import yaml
 
-from libmultilabel.common_utils import AttributeDict, timer
+from libmultilabel.common_utils import AttributeDict, timer, dtimer, dump_dict
 from libmultilabel.logging import add_stream_handler, add_collect_handler
 
 
@@ -195,6 +195,15 @@ def add_all_arguments(parser):
         "--eval", action="store_true", help="Only run evaluation on the test set (default: %(default)s)"
     )
     parser.add_argument("--checkpoint_path", help="The checkpoint to warm-up with (default: %(default)s)")
+    parser.add_argument(
+        "--num_threads", type=int, default=-1, help="Number of threads for parallel OVR training, -1 represents half of logic CPUs .(default: %(default)s)"
+        )
+    parser.add_argument(
+        "--training_only", action="store_true", help="Only run training (default: %(default)s)"
+        )
+    parser.add_argument(
+        "--dict_output_path", type=str, help="Output path of result_dict. (default: %(default)s)",
+    )
 
     # linear options
     parser.add_argument("--linear", action="store_true", help="Train linear model")
@@ -297,38 +306,43 @@ def check_config(config):
     return None
 
 
-@timer
+@dtimer(None)
 def main():
-    # Get config
-    config = get_config()
-    check_config(config)
+    try:
+        # Get config
+        config = get_config()
+        check_config(config)
 
-    # Set up logger
-    log_level = logging.WARNING if config.silent else logging.INFO
-    stream_handler = add_stream_handler(log_level)
-    collect_handler = add_collect_handler(logging.NOTSET)
+        # Set up logger
+        log_level = logging.WARNING if config.silent else logging.INFO
+        stream_handler = add_stream_handler(log_level)
+        collect_handler = add_collect_handler(logging.NOTSET)
 
-    logging.info(f"Run name: {config.run_name}")
+        logging.info(f"Run name: {config.run_name}")
 
-    if config.linear:
-        from linear_trainer import linear_run
+        if config.linear:
+            from linear_trainer import linear_run
 
-        linear_run(config)
-    else:
-        from torch_trainer import TorchTrainer
+            linear_run(config)
+        else:
+            from torch_trainer import TorchTrainer
 
-        trainer = TorchTrainer(config)  # initialize trainer
-        # train
-        if not config.eval:
-            trainer.train()
-        # test
-        if "test" in trainer.datasets:
-            trainer.test()
+            trainer = TorchTrainer(config)  # initialize trainer
+            # train
+            if not config.eval:
+                trainer.train()
+            # test
+            if "test" in trainer.datasets:
+                trainer.test()
 
-    collected_logs = collect_handler.get_logs()
-    if collected_logs:
-        print("\n\n======= Collected log messages =======")
-        print("\n".join(collected_logs))
+        collected_logs = collect_handler.get_logs()
+        if collected_logs:
+            print("\n\n======= Collected log messages =======")
+            print("\n".join(collected_logs))
+    except Exception as e:
+        print(e)        
+    finally:
+        dump_dict(config.dict_output_path)
 
 
 if __name__ == "__main__":

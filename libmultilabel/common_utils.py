@@ -3,9 +3,61 @@ import json
 import logging
 import os
 import time
-from functools import wraps
+from functools import wraps, reduce
 
 import numpy as np
+
+
+result_dict = {}
+def dump_dict(path='./result_dict.json'):
+    with open(path, 'w') as f:
+        json.dump(result_dict, f, indent=4)
+
+def set_dict(value=None, *keys, **udict): # just want to appropriately update the time log in the beginning..
+    """A powerful function to set result_dict with key and value or chain of keys and value or another dict.
+    result_dict = {}
+    set_dict(10, "time") # result_dict = {'time': 10}
+    set_dict("l", "k1", "k2") # result_dict = {'time': 10, 'k1': {'k2': 'l'}}
+
+    keys = ["l1", "l2", "l3"]
+    set_dict(True, *keys) # result_dict = {'time': 10, 'k1': {'k2': 'l'}, 'l1': {'l2': {'l3': True}}}
+
+    set_dict(kw1=1, kw2=2) # result_dict = {'time': 10, 'k1': {'k2': 'l'}, 'l1': {'l2': {'l3': True}}, 'kw1': 1, 'kw2': 2}
+
+    u_dict = {"d1": 10, "d2": {"s1": False}}
+    set_dict(**u_dict) # result_dict = {'time': 10, 'k1': {'k2': 'l'}, 'l1': {'l2': {'l3': True}}, 'kw1': 1, 'kw2': 2, 'd1': 10, 'd2': {'s1': False}}
+
+    Or all together, though I can't imagine when I would need such functionality.
+    result_dict = {}
+    set_dict(False, "start", *keys, "end", kw0=0, **u_dict, kw1=1, kw2=2) # result_dict = {'start': {'l1': {'l2': {'l3': {'end': False}}}}, 'kw0': 0, 'd1': 10, 'd2': {'s1': False}, 'kw1': 1, 'kw2': 2}
+    """
+    if keys:
+        def _get(d, k):
+            if k not in d:
+                d[k] = {}
+            return d[k]
+        cur = reduce(_get, keys[:-1], result_dict) # good func found in https://www.reddit.com/r/learnpython/comments/m1573y/how_to_walk_through_a_nested_dictionary_with_its/
+        cur[keys[-1]] = value
+    result_dict.update(udict)
+
+
+def dtimer(write_func):
+    """Wall time for a function."""
+
+    def decorator(func):
+
+        @wraps(func)
+        def wrapper(*args, **kwargs):
+            start_time = time.time()
+            value = func(*args, **kwargs)
+            wall_time = time.time() - start_time
+            write_func_l = write_func if write_func is not None else lambda x: set_dict(x, func.__name__)
+            write_func_l(wall_time)
+            return value
+
+        return wrapper
+
+    return decorator
 
 
 class AttributeDict(dict):

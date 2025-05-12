@@ -10,6 +10,7 @@ from tqdm import tqdm
 import psutil
 
 from . import linear
+from libmultilabel.common_utils import set_dict
 
 __all__ = ["train_tree", "TreeModel"]
 
@@ -116,6 +117,7 @@ def train_tree(
     options: str = "",
     K=100,
     dmax=10,
+    num_threads=-1,
     verbose: bool = True,
 ) -> TreeModel:
     """Trains a linear model for multi-label data using a divide-and-conquer strategy.
@@ -132,6 +134,8 @@ def train_tree(
     Returns:
         A model which can be used in predict_values.
     """
+    import time
+    s1 = time.time()
     label_representation = (y.T * x).tocsr()
     label_representation = sklearn.preprocessing.normalize(label_representation, norm="l2", axis=1)
     root = _build_tree(label_representation, np.arange(y.shape[1]), 0, K, dmax)
@@ -159,20 +163,22 @@ def train_tree(
 
     if total_memory <= model_size:
         raise MemoryError(f"Not enough memory to train the model.")
-
+    s2 = time.time()
     pbar = tqdm(total=num_nodes, disable=not verbose)
 
     def visit(node):
         if node.is_root:
-            _train_node(y, x, options, node)
+            _train_node(y, x, options, node, num_threads)
         else:
             relevant_instances = y[:, node.label_map].getnnz(axis=1) > 0
-            _train_node(y[relevant_instances], x[relevant_instances], options, node)
+            _train_node(y[relevant_instances], x[relevant_instances], options, node, num_threads)
         pbar.update()
 
     root.dfs(visit)
     pbar.close()
-
+    s3 = time.time()
+    print(f"kmeans: {s2-s1:.4f}, trianing: {s3-s2:.4f}, total: {s3-s1:.4f}")
+    set_dict(**{'kmeans': s2-s1, 'tree_node_training': s3-s2, 'total': s3-s1})
     flat_model, weight_map = _flatten_model(root)
     return TreeModel(root, flat_model, weight_map)
 
@@ -234,7 +240,7 @@ def get_estimated_model_size(root):
     return total_num_weights * 16 * 2 / 3
 
 
-def _train_node(y: sparse.csr_matrix, x: sparse.csr_matrix, options: str, node: Node):
+def _train_node(y: sparse.csr_matrix, x: sparse.csr_matrix, options: str, node: Node, num_threads: int):
     """If node is internal, computes the metalabels representing each child and trains
     on the metalabels. Otherwise, train on y.
 
@@ -245,14 +251,14 @@ def _train_node(y: sparse.csr_matrix, x: sparse.csr_matrix, options: str, node: 
         node (Node): Node to be trained.
     """
     if node.isLeaf():
-        node.model = linear.train_1vsrest(y[:, node.label_map], x, False, options, False)
+        node.model = linear.train_1vsrest(y[:, node.label_map], x, False, options, num_threads, False)
     else:
         # meta_y[i, j] is 1 if the ith instance is relevant to the jth child.
         # getnnz returns an ndarray of shape number of instances.
         # This must be reshaped into number of instances * 1 to be interpreted as a column.
         meta_y = [y[:, child.label_map].getnnz(axis=1)[:, np.newaxis] > 0 for child in node.children]
         meta_y = sparse.csr_matrix(np.hstack(meta_y))
-        node.model = linear.train_1vsrest(meta_y, x, False, options, False)
+        node.model = linear.train_1vsrest(meta_y, x, False, options, num_threads, False)
 
     node.model.weights = sparse.csc_matrix(node.model.weights)
 
