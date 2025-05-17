@@ -120,7 +120,7 @@ def train_parallel_1vsrest(
         verbose (bool): Output extra progress information.
     """
     ParallelTrainer.init_trainer(y, x, options, num_class, weights, verbose)
-    if num_threads < 0 or num_threads > os.cpu_count():
+    if num_threads < 1 or num_threads > os.cpu_count():
         num_threads = int(os.cpu_count() / 2)
     trainers = [ParallelTrainer() for _ in range(num_threads)]
 

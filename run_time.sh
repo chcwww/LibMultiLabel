@@ -6,7 +6,7 @@ fi
 branch=timing_exp
 datasets=(rcv1 AmazonCat-13K EUR-Lex Wiki10-31K)
 linear_techs=(1vsrest tree)
-num_threads=(1 2 4 8)
+num_threads=(1 2 4 8 0)
 
 datasets=(rcv1 EUR-Lex)
 
@@ -33,9 +33,15 @@ for linear_tech in "${linear_techs[@]}"; do
             sname="name=${1}"
             exp_id=$stech--$sdata--$snum_thread--$sno_para--$sno_copy--$sname
 
+            liblinear_options="-m ${num_thread}"
+            if [ $num_thread -eq 0 ]; then
+                no_para=1
+                liblinear_options="-s 1"
+            fi
+
             NO_PARA=${no_para} NO_COPY=${no_copy} python main.py \
             --num_threads ${num_thread} --training_only --dict_output_path para_results/${exp_id}.json \
-            --linear --liblinear_options "-m ${num_thread}" \
+            --linear --liblinear_options ${liblinear_options} \
             --data_format svm --training_file data/${data}/train.svm ${test_data}\
             --linear_technique ${linear_tech} --seed 1337 \
             --result_dir runs/${exp_id} \
